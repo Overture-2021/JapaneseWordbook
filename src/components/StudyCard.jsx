@@ -11,6 +11,7 @@ import {
   classifyScript,
   getKanaPreview,
   getWordForms,
+  keystrokeGroups,
   splitKeystrokes,
 } from '../lib/typing';
 
@@ -54,26 +55,47 @@ function MetaRow({ word, onSpeak, speakDisabled }) {
   );
 }
 
-function KeystrokeGuide({ reading, typed = '' }) {
-  const keys = splitKeystrokes(reading);
+function KeystrokeGuide({ word, typed = '' }) {
+  const keys = splitKeystrokes(word.reading);
   const cleanTyped = typed.toLowerCase().replace(/[^a-z-]/g, '');
+  const groups = keystrokeGroups(word);
+
+  const renderKey = (index) => (
+    <kbd
+      className={
+        index < cleanTyped.length
+          ? cleanTyped[index] === keys[index]
+            ? 'done'
+            : 'wrong'
+          : index === cleanTyped.length
+            ? 'current'
+            : ''
+      }
+      key={`${keys[index]}-${index}`}
+    >
+      {keys[index]}
+    </kbd>
+  );
+
+  if (!groups) {
+    return (
+      <div className="keystroke-guide" aria-label={`键盘输入 ${keys.join('')}`}>
+        {keys.map((key, index) => renderKey(index))}
+      </div>
+    );
+  }
+
   return (
-    <div className="keystroke-guide" aria-label={`键盘输入 ${keys.join('')}`}>
-      {keys.map((key, index) => (
-        <kbd
-          className={
-            index < cleanTyped.length
-              ? cleanTyped[index] === key
-                ? 'done'
-                : 'wrong'
-              : index === cleanTyped.length
-                ? 'current'
-                : ''
-          }
-          key={`${key}-${index}`}
-        >
-          {key}
-        </kbd>
+    <div className="keystroke-guide grouped" aria-label={`键盘输入 ${keys.join('')}`}>
+      {groups.map((group, groupIndex) => (
+        <div className="keystroke-group" key={`${group.label}-${groupIndex}`}>
+          <span className="keystroke-group-label japanese-text">{group.label}</span>
+          <div className="keystroke-group-keys">
+            {keys
+              .slice(group.start, group.end)
+              .map((key, offset) => renderKey(group.start + offset))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -125,6 +147,12 @@ export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak }) {
     inputRef.current?.focus();
   }, [word.id]);
 
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    onChoice(true);
+  };
+
   return (
     <article className="study-card recite-card">
       <MetaRow onSpeak={onSpeak} word={word} />
@@ -156,13 +184,14 @@ export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak }) {
             {typingWrong ? '检查按键' : typingComplete ? '输入完成' : getKanaPreview(typed) || 'かな'}
           </span>
         </div>
-        <KeystrokeGuide reading={word.reading} typed={typed} />
+        <KeystrokeGuide word={word} typed={typed} />
         <input
           autoComplete="off"
           autoCorrect="off"
           className={typingWrong ? 'wrong' : typingComplete ? 'complete' : ''}
           id="follow-type"
           onChange={(event) => onTyped(event.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="romaji"
           ref={inputRef}
           spellCheck="false"
@@ -191,7 +220,7 @@ export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak }) {
           type="button"
         >
           <Check size={18} />
-          记住了
+          下一个
         </button>
       </div>
     </article>

@@ -27,7 +27,8 @@ test('recite typing, progress, persistence, and dialogs work', async ({ page }, 
   const romaji = await page.locator('.romaji-form strong').innerText();
   await page.getByLabel('键盘跟打').fill(romaji);
   await expect(page.getByText('输入完成')).toBeVisible();
-  await page.getByRole('button', { name: '记住了' }).click();
+  await expect(page.getByRole('button', { name: '下一个' })).toBeVisible();
+  await page.getByLabel('键盘跟打').press('Enter');
   await expect(page.locator('.session-progress-row strong')).toHaveText('2 / 20');
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('kotobacho.progress.v1')));
