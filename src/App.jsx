@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Cloud, CloudOff } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from 'lucide-react';
 import { CloudSyncDialog } from './components/CloudSyncDialog';
 import { DictionaryDrawer } from './components/DictionaryDrawer';
 import { ResultsView } from './components/ResultsView';
@@ -157,10 +157,27 @@ function App() {
   };
 
   const handleReciteChoice = (correct) => {
-    const result = appendResult(correct, reciteTyped);
-    if (!result) return;
+    if (!currentWord) return;
+    // With free navigation you can revisit a graded card; only count it toward
+    // progress once, and replace the earlier result instead of appending.
+    const alreadyGraded = session.results.some(
+      (item) => item.wordId === currentWord.id,
+    );
+    if (!alreadyGraded) {
+      setProgress((previous) => recordResult(previous, currentWord.id, correct));
+    }
+    const result = {
+      wordId: currentWord.id,
+      correct,
+      answer: reciteTyped,
+      answeredAt: new Date().toISOString(),
+    };
     setSession((previous) => {
-      const results = [...previous.results, result];
+      const results = alreadyGraded
+        ? previous.results.map((item) =>
+            item.wordId === currentWord.id ? result : item,
+          )
+        : [...previous.results, result];
       if (previous.index === previous.batchIds.length - 1) {
         return { ...previous, results, phase: 'results', cardState: 'prompt' };
       }
@@ -170,6 +187,17 @@ function App() {
         index: previous.index + 1,
         cardState: 'prompt',
       };
+    });
+  };
+
+  const navigate = (delta) => {
+    setSession((previous) => {
+      const index = Math.min(
+        Math.max(previous.index + delta, 0),
+        previous.batchIds.length - 1,
+      );
+      if (index === previous.index) return previous;
+      return { ...previous, index, cardState: 'prompt' };
     });
   };
 
@@ -399,8 +427,32 @@ function App() {
 
           {session.phase === 'active' ? (
             <>
-              <div className="session-progress-row">
-                <div>
+              <div
+                className={`session-progress-row${session.mode === 'recite' ? ' with-nav' : ''}`}
+              >
+                {session.mode === 'recite' && (
+                  <div className="batch-nav" aria-label="批次导航">
+                    <button
+                      aria-label="上一词（←）"
+                      disabled={session.index === 0}
+                      onClick={() => navigate(-1)}
+                      title="上一词（←）"
+                      type="button"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button
+                      aria-label="下一词（→）"
+                      disabled={session.index === batchWords.length - 1}
+                      onClick={() => navigate(1)}
+                      title="下一词（→）"
+                      type="button"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                )}
+                <div className="session-progress-count">
                   <span>本批进度</span>
                   <strong>{session.index + 1} / {batchWords.length}</strong>
                 </div>
@@ -415,6 +467,8 @@ function App() {
                   <ReciteCard
                     key={currentWord.id}
                     onChoice={handleReciteChoice}
+                    onNext={() => navigate(1)}
+                    onPrev={() => navigate(-1)}
                     onSpeak={speak}
                     onTyped={setReciteTyped}
                     typed={reciteTyped}

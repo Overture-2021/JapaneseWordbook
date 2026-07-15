@@ -135,7 +135,7 @@ function QwertyKeyboard({ activeKey, onKey, onBackspace }) {
   );
 }
 
-export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak }) {
+export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak, onPrev, onNext }) {
   const inputRef = useRef(null);
   const forms = useMemo(() => getWordForms(word), [word]);
   const cleanTyped = typed.toLowerCase().replace(/[^a-z-]/g, '');
@@ -148,9 +148,16 @@ export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak }) {
   }, [word.id]);
 
   const handleKeyDown = (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    onChoice(true);
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onChoice(true);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      onPrev();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      onNext();
+    }
   };
 
   return (
@@ -238,12 +245,16 @@ export function TestCard({
   result,
 }) {
   const inputRef = useRef(null);
+  const advanceRef = useRef(null);
   const forms = useMemo(() => getWordForms(word), [word]);
   const submitted = Boolean(result);
   const isRead = mode === 'read';
 
   useEffect(() => {
-    if (!submitted) inputRef.current?.focus();
+    // Keyboard-first: put focus where the next keystroke is expected — the
+    // answer box before submitting, the advance button after (Enter advances).
+    if (submitted) advanceRef.current?.focus();
+    else inputRef.current?.focus();
   }, [word.id, submitted]);
 
   const handleKeyDown = (event) => {
@@ -333,7 +344,12 @@ export function TestCard({
 
       <div className="card-actions">
         {submitted ? (
-          <button className="button primary wide" onClick={onAdvance} type="button">
+          <button
+            className="button primary wide"
+            onClick={onAdvance}
+            ref={advanceRef}
+            type="button"
+          >
             下一题
             <ArrowRight size={18} />
           </button>

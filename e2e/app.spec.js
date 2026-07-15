@@ -27,9 +27,19 @@ test('recite typing, progress, persistence, and dialogs work', async ({ page }, 
   const romaji = await page.locator('.romaji-form strong').innerText();
   await page.getByLabel('键盘跟打').fill(romaji);
   await expect(page.getByText('输入完成')).toBeVisible();
-  await expect(page.getByRole('button', { name: '下一个' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '下一个', exact: true })).toBeVisible();
   await page.getByLabel('键盘跟打').press('Enter');
   await expect(page.locator('.session-progress-row strong')).toHaveText('2 / 20');
+
+  // Keyboard-first: arrow keys page back and forth through the batch.
+  await page.getByLabel('键盘跟打').press('ArrowLeft');
+  await expect(page.locator('.session-progress-row strong')).toHaveText('1 / 20');
+  await page.getByLabel('键盘跟打').press('ArrowRight');
+  await expect(page.locator('.session-progress-row strong')).toHaveText('2 / 20');
+
+  // Dictionary picker is a dropdown (ready for non-JLPT dictionaries).
+  await page.locator('.dictionary-select').selectOption('N4');
+  await expect(page.locator('.level-progress-summary')).toContainText('N4');
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('kotobacho.progress.v1')));
   expect(Object.values(stored.words)[0].seen).toBe(1);
@@ -63,7 +73,10 @@ test('read and write tests grade valid Japanese input', async ({ page }) => {
   await page.getByLabel('输入读音').fill(toRomaji(readWord.reading));
   await page.getByRole('button', { name: '确认', exact: true }).click();
   await expect(page.getByText('正确', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '下一题' }).click();
+  // 下一题 is auto-focused after submitting, so Enter advances (keyboard-first).
+  await expect(page.getByRole('button', { name: '下一题' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.test-prompt')).toBeVisible();
 
   await page.getByRole('button', { name: /默写/ }).click();
   const meaning = await page.locator('.test-prompt > div').innerText();

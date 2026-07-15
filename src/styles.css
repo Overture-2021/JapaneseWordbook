@@ -401,6 +401,33 @@ a:focus-visible {
   gap: 10px;
 }
 
+.dictionary-select {
+  height: 32px;
+  padding: 0 30px 0 12px;
+  color: var(--ink);
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f6862' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  border: 1px solid #cfd3ce;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.dictionary-select:hover {
+  border-color: #b6bbb4;
+}
+
+.dictionary-select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
 .segmented-control {
   display: flex;
   padding: 3px;
@@ -561,11 +588,43 @@ a:focus-visible {
   color: var(--muted);
 }
 
-.session-progress-row > div:first-child {
+.session-progress-row.with-nav {
+  grid-template-columns: auto auto minmax(120px, 1fr) auto;
+}
+
+.session-progress-count {
   display: flex;
   gap: 8px;
   align-items: center;
   font-size: 10px;
+}
+
+.batch-nav {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.batch-nav button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #cfd3ce;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.batch-nav button:not(:disabled):hover {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.batch-nav button:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
 }
 
 .session-progress-row strong {

@@ -70,7 +70,7 @@ describe('kanji-aware segmentation', () => {
     ]);
   });
 
-  it('maps segments onto romaji keystroke ranges, null when nothing to split', () => {
+  it('maps aligned segments onto romaji keystroke ranges', () => {
     expect(keystrokeGroups(byTerm('見る'))).toEqual([
       { label: '見', start: 0, end: 2 },
       { label: 'る', start: 2, end: 4 },
@@ -79,6 +79,24 @@ describe('kanji-aware segmentation', () => {
       { label: '大', start: 0, end: 2 },
       { label: 'きい', start: 2, end: 5 },
     ]);
-    expect(keystrokeGroups(byTerm('学校'))).toBeNull();
+  });
+
+  it('splits unalignable multi-kanji compounds by mora', () => {
+    // 昨日 → きのう doesn't decompose into 昨/日, so fall back to per-mora.
+    expect(keystrokeGroups(byTerm('昨日'))).toEqual([
+      { label: 'き', start: 0, end: 2 },
+      { label: 'の', start: 2, end: 4 },
+      { label: 'う', start: 4, end: 5 },
+    ]);
+    // Sokuon stays attached to the kana it doubles (っこ → "kko").
+    expect(keystrokeGroups(byTerm('学校'))).toEqual([
+      { label: 'が', start: 0, end: 2 },
+      { label: 'っこ', start: 2, end: 5 },
+      { label: 'う', start: 5, end: 6 },
+    ]);
+  });
+
+  it('returns null when there is nothing to separate', () => {
+    expect(keystrokeGroups(byTerm('ありがとう'))).toBeNull();
   });
 });

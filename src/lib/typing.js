@@ -106,22 +106,54 @@ export const segmentWord = (word) => {
   return segments;
 };
 
+const SMALL_KANA = new Set('ゃゅょぁぃぅぇぉゎ');
+
+const kanjiCount = (label) =>
+  [...label].filter((character) => !wanakana.isKana(character)).length;
+
+// Break a reading into mora-sized chunks: a small kana (ゃゅょ…) joins the kana
+// before it and a sokuon (っ) joins the kana after it, so each chunk is one
+// typeable syllable.
+const splitMorae = (reading) => {
+  const morae = [];
+  for (const character of reading) {
+    const previous = morae[morae.length - 1];
+    if (morae.length && (SMALL_KANA.has(character) || previous === 'っ')) {
+      morae[morae.length - 1] += character;
+    } else {
+      morae.push(character);
+    }
+  }
+  return morae;
+};
+
 // Map word segments onto ranges of the romaji keystroke sequence for the
-// keystroke guide. Returns null when there is nothing to separate (one segment)
-// or the romaji boundaries don't line up, so the caller renders a flat row.
+// keystroke guide. An aligned kanji keeps one labelled group (見, 食…). A
+// multi-kanji run that couldn't be aligned per character (昨日 → きのう, whose
+// reading doesn't decompose into 昨/日) is split by mora with kana labels, so it
+// still partitions instead of rendering as one undivided run. Returns null when
+// there is nothing to separate or the romaji boundaries don't line up.
 export const keystrokeGroups = (word) => {
   const segments = segmentWord(word);
-  if (segments.length <= 1) return null;
-
   const groups = [];
   let kanaEnd = 0;
-  let start = 0;
-  for (const segment of segments) {
-    kanaEnd += segment.reading.length;
+
+  const push = (label, kanaLength) => {
+    const start = toRomaji(word.reading.slice(0, kanaEnd)).length;
+    kanaEnd += kanaLength;
     const end = toRomaji(word.reading.slice(0, kanaEnd)).length;
-    groups.push({ label: segment.label, start, end });
-    start = end;
+    groups.push({ label, start, end });
+  };
+
+  for (const segment of segments) {
+    if (kanjiCount(segment.label) >= 2 && segment.reading.length >= 2) {
+      splitMorae(segment.reading).forEach((mora) => push(mora, mora.length));
+    } else {
+      push(segment.label, segment.reading.length);
+    }
   }
+
+  if (groups.length <= 1) return null;
   if (groups[groups.length - 1].end !== toRomaji(word.reading).length) return null;
   return groups;
 };

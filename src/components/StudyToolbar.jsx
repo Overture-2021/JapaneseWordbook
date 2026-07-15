@@ -10,22 +10,19 @@ export function StudyToolbar({ settings, onChange, onNewBatch }) {
   return (
     <section className="study-toolbar" aria-label="批次设置">
       <div className="level-picker">
-        <span className="control-label">JLPT</span>
-        <div className="segmented-control">
+        <span className="control-label">词库</span>
+        <select
+          aria-label="词库"
+          className="dictionary-select"
+          onChange={(event) => onChange({ ...settings, level: event.target.value })}
+          value={settings.level}
+        >
           {JLPT_LEVELS.map((level) => (
-            <button
-              aria-label={`${level} ${LEVEL_LABELS[level]}`}
-              aria-pressed={settings.level === level}
-              className={settings.level === level ? 'active' : ''}
-              key={level}
-              onClick={() => onChange({ ...settings, level })}
-              title={LEVEL_LABELS[level]}
-              type="button"
-            >
-              {level}
-            </button>
+            <option key={level} value={level}>
+              {level} · {LEVEL_LABELS[level]}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
       <div className="toolbar-divider" />
