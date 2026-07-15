@@ -12,6 +12,7 @@ import {
   getCloudState,
   saveCloudState,
 } from './lib/githubSync';
+import { resolveRepository } from './lib/repository';
 import { createSession } from './lib/session';
 import {
   getTodayStats,
@@ -19,7 +20,8 @@ import {
   loadProgress,
   loadSession,
   loadSettings,
-  mergeCloudState,
+  mergeProgress,
+  normalizeCloudState,
   recordResult,
   saveGitHubProfile,
   saveProgress,
@@ -28,11 +30,10 @@ import {
 } from './lib/storage';
 import { isCorrectAnswer } from './lib/typing';
 
-const REPOSITORY = {
-  owner: 'Overture-2021',
-  repo: 'JapaneseWordbook',
-  branch: 'main',
-};
+const REPOSITORY = resolveRepository({
+  hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+  baseUrl: import.meta.env.BASE_URL,
+});
 
 const MODE_COPY = {
   recite: { title: '背诵', japanese: '言葉を覚える', accent: '记忆' },
@@ -219,8 +220,12 @@ function App() {
         username: user.login,
         ...REPOSITORY,
       });
-      const connection = { token, user, remote };
-      setCloudConnection(connection);
+      // Pull-merge on connect so both devices converge immediately; progress
+      // only grows, so this can never discard what's already on this device.
+      if (remote?.state?.progress) {
+        setProgress((previous) => mergeProgress(previous, remote.state.progress));
+      }
+      setCloudConnection({ token, user, remote });
       const profile = { username: user.login, autoSync };
       setGithubProfile(profile);
       saveGitHubProfile(profile);
@@ -235,19 +240,35 @@ function App() {
     if (!cloudConnection || cloudBusy) return;
     setCloudBusy(true);
     setCloudError('');
+    const target = {
+      token: cloudConnection.token,
+      username: cloudConnection.user.login,
+      ...REPOSITORY,
+    };
     try {
-      await saveCloudState({
-        token: cloudConnection.token,
-        username: cloudConnection.user.login,
-        state: { settings, progress, session },
-        ...REPOSITORY,
-      });
-      const remote = await getCloudState({
-        token: cloudConnection.token,
-        username: cloudConnection.user.login,
-        ...REPOSITORY,
-      });
-      setCloudConnection((previous) => ({ ...previous, remote }));
+      // Pull first and merge per word, so finishing a batch here never
+      // overwrites progress synced from another device. If a concurrent write
+      // lands between our read and write, GitHub rejects the stale sha (409);
+      // re-pull, re-merge, and retry — the merge is idempotent so it converges.
+      let remote = await getCloudState(target);
+      let merged = mergeProgress(progress, remote?.state?.progress);
+      for (let attempt = 0; attempt <= 2; attempt += 1) {
+        try {
+          await saveCloudState({
+            ...target,
+            state: { settings, progress: merged, session },
+            sha: remote ? remote.sha : null,
+          });
+          break;
+        } catch (error) {
+          if (error.status !== 409 || attempt === 2) throw error;
+          remote = await getCloudState(target);
+          merged = mergeProgress(merged, remote?.state?.progress);
+        }
+      }
+      setProgress((previous) => mergeProgress(previous, merged));
+      const refreshed = await getCloudState(target);
+      setCloudConnection((previous) => ({ ...previous, remote: refreshed }));
     } catch (error) {
       setCloudError(error.message);
     } finally {
@@ -255,17 +276,36 @@ function App() {
     }
   };
 
-  const downloadCloudState = () => {
-    if (!cloudConnection?.remote?.state) return;
-    const cloud = mergeCloudState(cloudConnection.remote.state);
-    setSettings(cloud.settings);
-    setProgress(cloud.progress);
-    setSession(
-      isValidSession(cloud.session)
-        ? cloud.session
-        : createSession(cloud.settings, session.mode),
-    );
-    setCloudOpen(false);
+  const downloadCloudState = async () => {
+    if (!cloudConnection || cloudBusy) return;
+    setCloudBusy(true);
+    setCloudError('');
+    try {
+      const remote = await getCloudState({
+        token: cloudConnection.token,
+        username: cloudConnection.user.login,
+        ...REPOSITORY,
+      });
+      if (!remote?.state) {
+        setCloudError('云端暂无数据');
+        return;
+      }
+      const cloud = normalizeCloudState(remote.state);
+      // Merge rather than replace so pulling never discards local study.
+      setProgress((previous) => mergeProgress(previous, cloud.progress));
+      setSettings(cloud.settings);
+      setSession(
+        isValidSession(cloud.session)
+          ? cloud.session
+          : createSession(cloud.settings, session.mode),
+      );
+      setCloudConnection((previous) => ({ ...previous, remote }));
+      setCloudOpen(false);
+    } catch (error) {
+      setCloudError(error.message);
+    } finally {
+      setCloudBusy(false);
+    }
   };
 
   const updateAutoSync = (next) => {
@@ -438,6 +478,7 @@ function App() {
         onDownload={downloadCloudState}
         onUpload={uploadCloudState}
         open={cloudOpen}
+        repository={REPOSITORY}
       />
     </div>
   );

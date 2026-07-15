@@ -93,7 +93,43 @@ export const getTodayStats = (progress) => {
   };
 };
 
-export const mergeCloudState = (cloud) => ({
+const mergeWordStat = (a, b) => {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.seen !== b.seen) return a.seen > b.seen ? a : b;
+  const aSeen = a.lastSeen || '';
+  const bSeen = b.lastSeen || '';
+  if (aSeen !== bSeen) return aSeen > bSeen ? a : b;
+  return a.correct >= b.correct ? a : b;
+};
+
+const mergeDailyStat = (a, b) => {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.seen !== b.seen) return a.seen > b.seen ? a : b;
+  return a.correct >= b.correct ? a : b;
+};
+
+// Progress counters only ever grow, so we reconcile per word and per day
+// instead of letting a whole-file upload clobber study earned on another
+// device. Each merge returns a whole source record rather than synthesising
+// one, which keeps counters coherent (correct + wrong == seen) and makes the
+// merge idempotent — repeated auto-syncs converge instead of inflating.
+export const mergeProgress = (local, remote) => {
+  const base = local || EMPTY_PROGRESS;
+  const incoming = remote || EMPTY_PROGRESS;
+  const words = { ...base.words };
+  Object.entries(incoming.words || {}).forEach(([id, stat]) => {
+    words[id] = mergeWordStat(words[id], stat);
+  });
+  const daily = { ...base.daily };
+  Object.entries(incoming.daily || {}).forEach(([key, stat]) => {
+    daily[key] = mergeDailyStat(daily[key], stat);
+  });
+  return { words, daily };
+};
+
+export const normalizeCloudState = (cloud) => ({
   settings: { ...DEFAULT_SETTINGS, ...(cloud.settings || {}) },
   progress: cloud.progress || EMPTY_PROGRESS,
   session: cloud.session || null,

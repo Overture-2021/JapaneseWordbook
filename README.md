@@ -27,7 +27,9 @@ npm run build
 
 Settings, the active batch, and study progress are saved automatically in browser `localStorage`.
 
-Optional GitHub sync uses the repository Contents API to write `user-data/<github-login>.json` on `main`. A fine-grained personal access token must grant **Contents: Read and write** for this repository. The token is held only in React memory and is discarded when the tab closes; it is never committed or written to browser storage.
+Optional GitHub sync uses the repository Contents API to write `user-data/<github-login>.json` on `main`. The sync target (owner and repository) is derived from the deployment URL, so a fork published to `https://<you>.github.io/JapaneseWordbook/` syncs to **your own fork** rather than upstream; off `github.io` (local dev, custom domains) it falls back to the upstream default. A fine-grained personal access token must grant **Contents: Read and write** for that repository. The token is held only in React memory and is discarded when the tab closes; it is never committed or written to browser storage.
+
+Progress is reconciled per word when syncing rather than overwritten, so studying on more than one device merges instead of clobbering. Connecting, pulling, and the auto-sync-on-batch upload all pull-then-merge first, so no sync direction discards local study; a concurrent write is retried on conflict. Settings still follow last-write-wins.
 
 This repository is public, so synced study-state JSON is public too. Data-only commits under `user-data/**` are excluded from the Pages deployment trigger.
 

@@ -25,6 +25,7 @@ export function CloudSyncDialog({
   onDownload,
   autoSync,
   onAutoSync,
+  repository = { owner: 'Overture-2021', repo: 'JapaneseWordbook', branch: 'main' },
 }) {
   const [token, setToken] = useState('');
   const closeRef = useRef(null);
@@ -91,10 +92,10 @@ export function CloudSyncDialog({
               <CloudCog size={19} />
               <div>
                 <span>同步仓库</span>
-                <strong>Overture-2021 / JapaneseWordbook</strong>
+                <strong>{repository.owner} / {repository.repo}</strong>
               </div>
               <span className="branch-badge">
-                <GitBranch size={13} /> main
+                <GitBranch size={13} /> {repository.branch}
               </span>
             </div>
 

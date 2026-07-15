@@ -11,7 +11,11 @@ const request = async (url, options = {}) => {
   const response = await fetch(url, options);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || `GitHub request failed (${response.status})`);
+    const error = new Error(
+      body.message || `GitHub request failed (${response.status})`,
+    );
+    error.status = response.status;
+    throw error;
   }
   return response.status === 204 ? null : response.json();
 };
@@ -59,15 +63,16 @@ export const saveCloudState = async ({
   branch,
   username,
   state,
+  sha,
 }) => {
   const path = `user-data/${username}.json`;
-  const existing = await getCloudState({
-    token,
-    owner,
-    repo,
-    branch,
-    username,
-  });
+  // A caller that just pulled can pass the sha it merged against (or null when
+  // no file exists yet) to skip a redundant read and, more importantly, to make
+  // the write fail loudly with a 409 if another device wrote in between.
+  const resolvedSha =
+    sha === undefined
+      ? (await getCloudState({ token, owner, repo, branch, username }))?.sha
+      : sha;
   const payload = {
     schemaVersion: 1,
     updatedAt: new Date().toISOString(),
@@ -84,7 +89,7 @@ export const saveCloudState = async ({
       message: `chore(data): sync ${username} study state`,
       content: encodeBase64(JSON.stringify(payload, null, 2)),
       branch,
-      ...(existing?.sha ? { sha: existing.sha } : {}),
+      ...(resolvedSha ? { sha: resolvedSha } : {}),
     }),
   });
 };
