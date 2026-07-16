@@ -3,10 +3,12 @@ import { BookOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from 'lucide-rea
 import { CloudSyncDialog } from './components/CloudSyncDialog';
 import { DictionaryDrawer } from './components/DictionaryDrawer';
 import { ResultsView } from './components/ResultsView';
+import { ReadingView } from './components/ReadingView';
 import { MobileNav, Sidebar } from './components/Sidebar';
 import { ReciteCard, TestCard } from './components/StudyCard';
 import { StudyToolbar } from './components/StudyToolbar';
 import { LEVEL_LABELS } from './data/dictionary';
+import { loadPassages } from './lib/passageLoader';
 import {
   authenticateGitHub,
   getCloudState,
@@ -66,6 +68,9 @@ function App({ dictionary, manifest }) {
   });
   const [answer, setAnswer] = useState('');
   const [reciteTyped, setReciteTyped] = useState('');
+  const [view, setView] = useState('study'); // 'study' (recite/read/write) | 'reading'
+  const [passages, setPassages] = useState(null);
+  const [passagesError, setPassagesError] = useState('');
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
   const [cloudConnection, setCloudConnection] = useState(null);
@@ -150,9 +155,32 @@ function App({ dictionary, manifest }) {
   };
 
   const changeMode = (mode) => {
+    if (mode === 'reading') {
+      setView('reading');
+      return;
+    }
+    setView('study');
+    // Coming back from reading to the already-active mode keeps its session.
     if (mode === session.mode && session.phase === 'active') return;
     startSession(mode);
   };
+
+  // Passages are a separate content shape from the word-batch session; fetch
+  // them lazily the first time reading mode is opened so startup stays fast.
+  useEffect(() => {
+    if (view !== 'reading' || passages) return undefined;
+    let alive = true;
+    loadPassages()
+      .then((data) => {
+        if (alive) setPassages(data.passages);
+      })
+      .catch((error) => {
+        if (alive) setPassagesError(error.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [view, passages]);
 
   const changeSettings = (nextSettings) => {
     const levelChanged = nextSettings.level !== settings.level;
@@ -381,10 +409,12 @@ function App({ dictionary, manifest }) {
     ? Math.round(((session.index + (session.cardState === 'feedback' ? 1 : 0)) / batchWords.length) * 100)
     : 0;
 
+  const activeMode = view === 'reading' ? 'reading' : session.mode;
+
   return (
     <div className="app-shell">
       <Sidebar
-        activeMode={session.mode}
+        activeMode={activeMode}
         cloudConnected={Boolean(cloudConnection)}
         onModeChange={changeMode}
         onOpenCloud={() => setCloudOpen(true)}
@@ -421,6 +451,14 @@ function App({ dictionary, manifest }) {
         </header>
 
         <div className="main-content">
+          {view === 'reading' ? (
+            <ReadingView
+              error={passagesError}
+              onSpeak={(text) => speak({ term: text })}
+              passages={passages}
+            />
+          ) : (
+            <>
           <header className="page-header">
             <div>
               <div className="page-eyebrow">
@@ -528,6 +566,8 @@ function App({ dictionary, manifest }) {
               wordsById={wordsById}
             />
           )}
+            </>
+          )}
 
           <footer className="app-footer">
             <span>{dictionary.length} 词 · N5–N1</span>
@@ -536,7 +576,7 @@ function App({ dictionary, manifest }) {
         </div>
       </main>
 
-      <MobileNav activeMode={session.mode} onModeChange={changeMode} />
+      <MobileNav activeMode={activeMode} onModeChange={changeMode} />
 
       <DictionaryDrawer
         attribution={manifest?.attribution}

@@ -5,12 +5,14 @@ import {
   CloudOff,
   Keyboard,
   PenLine,
+  ScrollText,
 } from 'lucide-react';
 
 const modes = [
   { id: 'recite', label: '背诵', japanese: '覚える', icon: BookMarked },
   { id: 'read', label: '认读测试', japanese: '読む', icon: Keyboard },
   { id: 'write', label: '默写测试', japanese: '書く', icon: PenLine },
+  { id: 'reading', label: '阅读', japanese: '読解', icon: ScrollText },
 ];
 
 export function Sidebar({

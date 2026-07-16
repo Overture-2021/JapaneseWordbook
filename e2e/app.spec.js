@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { buildPassageTyping } from '../src/lib/passage';
 import { toRomaji } from '../src/lib/typing';
 
 // The dictionary is a fetched asset now; read the same file the app serves.
@@ -7,6 +8,10 @@ const DICTIONARY = JSON.parse(
   readFileSync(new URL('../public/dictionaries/jlpt.json', import.meta.url), 'utf8'),
 );
 const byId = new Map(DICTIONARY.map((word) => [word.id, word]));
+
+const PASSAGES = JSON.parse(
+  readFileSync(new URL('../public/passages/starter.json', import.meta.url), 'utf8'),
+);
 
 const expectNoHorizontalOverflow = async (page) => {
   const dimensions = await page.evaluate(() => ({
@@ -92,6 +97,32 @@ test('read and write tests grade valid Japanese input', async ({ page }) => {
   await page.getByLabel('输入日语').fill(writeWord.reading);
   await page.getByRole('button', { name: '确认', exact: true }).click();
   await expect(page.getByText('正确', { exact: true })).toBeVisible();
+});
+
+test('reading mode moves the cursor and both highlighters as you type', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Covered by the mobile layout test');
+  const typeable = buildPassageTyping(PASSAGES[0]).typeable; // 私 / は / 毎朝 / …
+
+  await page.locator('.sidebar .nav-item').filter({ hasText: '阅读' }).click();
+  await expect(page.locator('.reading-passage')).toBeVisible();
+
+  // Cursor starts on the first content word; its meaning is highlighted.
+  await expect(page.locator('.reading-seg.current')).toContainText(typeable[0].surface);
+  await expect(page.locator('.reading-trans-token.active')).toContainText('我');
+
+  // Typing the whole word advances the cursor onto the topic particle は, which
+  // has no translation — the current highlighter switches colour and nothing on
+  // the translation side is lit. 私's reading わたし is entered here with the
+  // Kunrei spelling "watasi" to prove IME romaji conventions are honored (the
+  // canonical guide shows "watashi").
+  await page.getByLabel('跟打输入').fill('watasi');
+  await expect(page.locator('.reading-seg.current.no-trans')).toContainText('は');
+  await expect(page.locator('.reading-trans-token.active')).toHaveCount(0);
+
+  // Typing the particle moves on to 毎朝, whose translation lights up again.
+  await page.getByLabel('跟打输入').fill(typeable[1].romaji);
+  await expect(page.locator('.reading-seg.current')).toContainText('毎朝');
+  await expect(page.locator('.reading-trans-token.active')).toContainText('每天早上');
 });
 
 test('mobile layout stays usable without viewport overflow', async ({ page }, testInfo) => {
