@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildPassageTyping, matchReading, matchSegment } from '../lib/passage';
-import { toRomaji } from '../lib/typing';
+import { buildPassageTyping, matchReading, matchSegment, typingKeys } from '../lib/passage';
+import { getKanaPreview, toRomaji } from '../lib/typing';
 
 const PASSAGES = JSON.parse(
   readFileSync(new URL('../../public/passages/starter.json', import.meta.url), 'utf8'),
@@ -99,15 +99,40 @@ describe('matchSegment (punctuation via a plain keyboard)', () => {
   });
 });
 
+describe('typingKeys', () => {
+  it('emits keys that type back to the same kana', () => {
+    // WanaKana romanises ふぉ as "fuo", but typing that gives ふお.
+    expect(toRomaji('ふぉ')).toBe('fuo');
+    expect(typingKeys('ゆうふぉにあむ')).toBe('yuufoniamu');
+    expect(getKanaPreview(typingKeys('ゆうふぉにあむ'))).toBe('ゆうふぉにあむ');
+  });
+
+  it('doubles a lone ん, which never commits as a bare "n"', () => {
+    expect(typingKeys('あさごはん')).toBe('asagohann');
+    expect(typingKeys('おんなのこ')).toBe('onnnanoko');
+    expect(getKanaPreview(typingKeys('あさごはん'))).toBe('あさごはん');
+    expect(getKanaPreview(typingKeys('おんなのこ'))).toBe('おんなのこ');
+  });
+
+  it('leaves ordinary morae on their canonical spelling', () => {
+    expect(typingKeys('わたし')).toBe('watashi');
+    expect(typingKeys('がっこう')).toBe('gakkou');
+    expect(typingKeys('ぎゅうにゅう')).toBe('gyuunyuu');
+  });
+});
+
 describe('starter passage data', () => {
   it.each(PASSAGES)('$id is internally consistent', (passage) => {
     expect(passage.segments.length).toBeGreaterThan(0);
     const tokenCount = passage.translation.length;
 
     for (const segment of passage.segments) {
-      // Readings are hiragana that must romanize to typeable keystrokes.
+      // Every reading must be typeable: the keys we show the learner have to
+      // convert back to exactly this reading, or the passage can't be finished.
       if (segment.reading) {
-        expect(toRomaji(segment.reading)).toMatch(/^[a-z-]+$/);
+        const keys = typingKeys(segment.reading);
+        expect(keys).toMatch(/^[a-z-]+$/);
+        expect(getKanaPreview(keys)).toBe(segment.reading);
       }
       // Every alignment index points at a real translation token.
       if (segment.trans != null) {

@@ -1,4 +1,30 @@
-import { getKanaPreview, toRomaji } from './typing';
+import { getKanaPreview, splitMorae, toRomaji } from './typing';
+
+const SMALL_KANA = new Set('ゃゅょぁぃぅぇぉゎ');
+
+// WanaKana's toRomaji is a *transliteration*, not IME input, so it can't be used
+// to tell a learner which keys to press: it renders ふぉ as "fuo" (typing that
+// gives ふお) and ん as a bare "n" (which an IME leaves pending, never
+// committing). Derive each mora's keys instead and verify they type back to the
+// same kana, falling back through the standard IME spellings.
+const moraKeys = (mora) => {
+  if (mora === 'ん') return 'nn'; // a lone "n" never commits on its own
+  const direct = toRomaji(mora);
+  if (getKanaPreview(direct) === mora) return direct;
+  if (mora.length >= 2 && SMALL_KANA.has(mora.slice(-1))) {
+    const base = toRomaji(mora.slice(0, -1));
+    const small = toRomaji(mora.slice(-1));
+    // ふ+ぉ → "f"+"o"; else the explicit small-kana form, て+ぃ → "te"+"x"+"i".
+    for (const candidate of [base.slice(0, -1) + small, `${base}x${small}`]) {
+      if (getKanaPreview(candidate) === mora) return candidate;
+    }
+  }
+  return direct;
+};
+
+// The keys a learner actually presses to produce `kana`. Round-trips through the
+// IME: getKanaPreview(typingKeys(k)) === k.
+export const typingKeys = (kana) => (kana ? splitMorae(kana).map(moraKeys).join('') : '');
 
 // Plain-keyboard stand-ins for Japanese punctuation, so a passage can be typed
 // without installing a Japanese IME: the learner presses an ASCII key and the
@@ -31,7 +57,7 @@ export const buildPassageTyping = (passage) => {
     let romaji = '';
     if (segment.reading) {
       kind = 'kana';
-      romaji = toRomaji(segment.reading);
+      romaji = typingKeys(segment.reading);
     } else if (PUNCT_KEYS[segment.surface]) {
       kind = 'punct';
       romaji = PUNCT_KEYS[segment.surface][0]; // primary key, shown in the guide
@@ -74,7 +100,7 @@ export const matchReading = (typed, reading) => {
 
   return {
     kana,
-    matched: toRomaji(reading.slice(0, common)).length,
+    matched: typingKeys(reading.slice(0, common)).length,
     wrong: !onTrack,
     complete: onTrack && settled === reading && kana === settled,
   };

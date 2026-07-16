@@ -40,6 +40,9 @@ export function ReadingView({ passages, error, onSpeak }) {
   const inputRef = useRef(null);
   const doneRef = useRef(null);
   const currentRef = useRef(null);
+  const activeTransRef = useRef(null);
+  const jpPaneRef = useRef(null);
+  const zhPaneRef = useRef(null);
 
   const passage = useMemo(() => {
     if (!passages?.length) return null;
@@ -70,9 +73,26 @@ export function ReadingView({ passages, error, onSpeak }) {
     else inputRef.current?.focus();
   }, [passage?.id, complete]);
 
-  // Keep the active word in view as the cursor descends a long, wrapped passage.
+  // Scroll one pane so a child is visible, centring it only when it has drifted
+  // out of view. Touches the pane's own scrollTop rather than using
+  // scrollIntoView, which would also drag the page around it.
+  const scrollIntoPane = (pane, target) => {
+    if (!pane || !target) return;
+    const paneBox = pane.getBoundingClientRect();
+    const targetBox = target.getBoundingClientRect();
+    if (targetBox.top < paneBox.top || targetBox.bottom > paneBox.bottom) {
+      pane.scrollTop +=
+        targetBox.top - paneBox.top - pane.clientHeight / 2 + targetBox.height / 2;
+    }
+  };
+
+  // Move both panes in unison as the cursor advances: the Japanese pane follows
+  // the active word, the translation pane follows the span it maps to. When the
+  // current segment has no correspondent (a particle), the translation pane has
+  // no anchor and simply holds its position instead of jumping.
   useEffect(() => {
-    currentRef.current?.scrollIntoView({ block: 'nearest' });
+    scrollIntoPane(jpPaneRef.current, currentRef.current);
+    scrollIntoPane(zhPaneRef.current, activeTransRef.current);
   }, [pos, passage?.id]);
 
   if (error) {
@@ -109,9 +129,11 @@ export function ReadingView({ passages, error, onSpeak }) {
   const nextPassage = passages[(currentIndex + 1) % passages.length];
   const hasNext = passages.length > 1;
 
-  const activeTrans = new Set(
-    currentSeg && Array.isArray(currentSeg.trans) ? currentSeg.trans : [],
-  );
+  const transIndices =
+    currentSeg && Array.isArray(currentSeg.trans) ? currentSeg.trans : [];
+  const activeTrans = new Set(transIndices);
+  // The earliest highlighted token is what the translation pane scrolls to.
+  const transAnchor = transIndices.length ? Math.min(...transIndices) : null;
 
   const segState = (segment) => {
     if (!segment.romaji) return 'punct';
@@ -173,43 +195,52 @@ export function ReadingView({ passages, error, onSpeak }) {
         </div>
       </div>
 
-      <div className="reading-passage japanese-text" aria-label="日文短文">
-        {model.segments.map((segment) => {
-          if (segment.pos === 'break') {
-            return <span aria-hidden="true" className="reading-break" key={segment.index} />;
-          }
-          const state = segState(segment);
-          const isCurrent = state === 'current';
-          let className = `reading-seg ${state}`;
-          if (isCurrent) {
-            className =
-              segment.kind === 'punct'
-                ? 'reading-seg current punct-current'
-                : `reading-seg current${segment.trans == null ? ' no-trans' : ''}`;
-          }
-          return (
-            <span
-              className={className}
-              key={segment.index}
-              ref={isCurrent ? currentRef : null}
-            >
-              {segment.surface}
-            </span>
-          );
-        })}
-      </div>
+      <div className="reading-panes">
+        <div className="reading-pane reading-pane-jp" ref={jpPaneRef}>
+          <div className="reading-passage japanese-text" aria-label="日文短文">
+            {model.segments.map((segment) => {
+              if (segment.pos === 'break') {
+                return <span aria-hidden="true" className="reading-break" key={segment.index} />;
+              }
+              const state = segState(segment);
+              const isCurrent = state === 'current';
+              let className = `reading-seg ${state}`;
+              if (isCurrent) {
+                className =
+                  segment.kind === 'punct'
+                    ? 'reading-seg current punct-current'
+                    : `reading-seg current${segment.trans == null ? ' no-trans' : ''}`;
+              }
+              return (
+                <span
+                  className={className}
+                  key={segment.index}
+                  ref={isCurrent ? currentRef : null}
+                >
+                  {segment.surface}
+                </span>
+              );
+            })}
+          </div>
+        </div>
 
-      <p className="reading-translation" aria-label="对照翻译">
-        {passage.translation.map((token, index) => (
-          <span
-            className={activeTrans.has(index) ? 'reading-trans-token active' : 'reading-trans-token'}
-            key={`${token}-${index}`}
-          >
-            {token}
-            {separator}
-          </span>
-        ))}
-      </p>
+        <div className="reading-pane reading-pane-zh" ref={zhPaneRef}>
+          <p className="reading-translation" aria-label="对照翻译">
+            {passage.translation.map((token, index) => (
+              <span
+                className={
+                  activeTrans.has(index) ? 'reading-trans-token active' : 'reading-trans-token'
+                }
+                key={`${token}-${index}`}
+                ref={index === transAnchor ? activeTransRef : null}
+              >
+                {token}
+                {separator}
+              </span>
+            ))}
+          </p>
+        </div>
+      </div>
 
       {complete ? (
         <div className="reading-done">

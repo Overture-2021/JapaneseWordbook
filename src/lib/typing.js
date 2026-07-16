@@ -114,7 +114,7 @@ const kanjiCount = (label) =>
 // Break a reading into mora-sized chunks: a small kana (ゃゅょ…) joins the kana
 // before it and a sokuon (っ) joins the kana after it, so each chunk is one
 // typeable syllable.
-const splitMorae = (reading) => {
+export const splitMorae = (reading) => {
   const morae = [];
   for (const character of reading) {
     const previous = morae[morae.length - 1];

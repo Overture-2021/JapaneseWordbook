@@ -75,6 +75,16 @@ Keep output conforming to the schema below so the runtime loader
   vertical gap.
 - Katakana words store a **hiragana** reading (ユーフォニアム → ゆうふぉにあむ) so the
   IME matcher and the guide work.
+- **Never use `toRomaji` to tell a learner which keys to press.** It is a
+  transliteration, not IME input: it renders ふぉ as `fuo` (which types back as
+  ふお) and ん as a bare `n` (which an IME leaves pending forever) — either makes
+  a passage impossible to finish. Use `typingKeys` in `src/lib/passage.js`, which
+  builds keys per mora and verifies each round-trips. A test asserts
+  `getKanaPreview(typingKeys(reading)) === reading` for every shipped reading, and
+  an e2e types a whole passage to the end; keep both when adding passages.
+- Known IME divergence: WanaKana parses `onna` as おんあ (greedy `nn`→ん), while
+  MS-IME gives おんな. The guide therefore shows `onnnanoko` for おんなのこ, which
+  works in both. A learner typing the MS-IME-natural `onnanoko` is marked wrong.
 
 ## Known limitations / follow-ups
 

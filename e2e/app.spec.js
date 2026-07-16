@@ -123,6 +123,32 @@ test('reading mode moves the cursor and both highlighters as you type', async ({
   await page.getByLabel('跟打输入').fill(typeable[1].romaji);
   await expect(page.locator('.reading-seg.current')).toContainText('毎朝');
   await expect(page.locator('.reading-trans-token.active')).toContainText('每天早上');
+
+  // Regression: a long multi-paragraph passage must not push the translation
+  // below the fold — both panes stay on screen and scroll within themselves.
+  await page.locator('.reading-select').selectOption('n4-kanade-01');
+  await expect(page.locator('.reading-pane-zh')).toBeVisible();
+  const zhBox = await page.locator('.reading-pane-zh').boundingBox();
+  expect(zhBox.y + zhBox.height).toBeLessThanOrEqual(page.viewportSize().height);
+  const jpScrolls = await page
+    .locator('.reading-pane-jp')
+    .evaluate((el) => el.scrollHeight > el.clientHeight);
+  expect(jpScrolls).toBe(true);
+});
+
+test('every passage is typeable to the end with IME romaji', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Desktop-only typing walk');
+  // Guards the class of bug where the keystroke guide suggests keys that can't
+  // reproduce the reading (ふぉ → "fuo" → ふお, or a lone ん → pending "n"),
+  // which would leave a passage impossible to finish.
+  await page.locator('.sidebar .nav-item').filter({ hasText: '阅读' }).click();
+  await page.locator('.reading-select').selectOption('n4-kanade-01');
+  await expect(page.locator('.reading-passage')).toBeVisible();
+
+  for (const segment of buildPassageTyping(PASSAGES[1]).typeable) {
+    await page.getByLabel('跟打输入').fill(segment.romaji);
+  }
+  await expect(page.locator('.reading-done')).toBeVisible();
 });
 
 test('mobile layout stays usable without viewport overflow', async ({ page }, testInfo) => {
