@@ -28,7 +28,6 @@ test('recite typing, progress, persistence, and dialogs work', async ({ page }, 
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
 
   await expect(page.getByRole('heading', { name: '背诵' })).toBeVisible();
-  await expect(page.locator('.keyboard-visual')).toBeVisible();
 
   const romaji = await page.locator('.romaji-form strong').innerText();
   await page.getByLabel('键盘跟打').fill(romaji);
@@ -99,7 +98,6 @@ test('mobile layout stays usable without viewport overflow', async ({ page }, te
   test.skip(testInfo.project.name.startsWith('desktop'), 'Mobile-only responsive check');
   await expect(page.locator('.mobile-nav')).toBeVisible();
   await expect(page.locator('.sidebar')).toBeHidden();
-  await expect(page.locator('.keyboard-visual')).toBeHidden();
   await expectNoHorizontalOverflow(page);
 
   await page.screenshot({

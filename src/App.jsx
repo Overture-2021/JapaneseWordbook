@@ -94,14 +94,23 @@ function App({ dictionary, manifest }) {
     [dictionary, settings.level],
   );
 
-  const levelMastered = useMemo(
-    () =>
-      levelWords.filter((word) => {
-        const stats = progress.words[word.id];
-        return stats?.seen >= 3 && stats.correct / stats.seen >= 0.8;
-      }).length,
-    [levelWords, progress],
-  );
+  const levelProgress = useMemo(() => {
+    let seen = 0;
+    let mastered = 0;
+    for (const word of levelWords) {
+      const stats = progress.words[word.id];
+      if (!stats?.seen) continue;
+      seen += 1;
+      if (stats.seen >= 3 && stats.correct / stats.seen >= 0.8) mastered += 1;
+    }
+    const total = levelWords.length || 1;
+    return {
+      seen,
+      mastered,
+      seenPercent: Math.round((seen / total) * 100),
+      masteredPercent: Math.round((mastered / total) * 100),
+    };
+  }, [levelWords, progress]);
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveProgress(progress), [progress]);
@@ -423,8 +432,20 @@ function App({ dictionary, manifest }) {
               <p className="japanese-text">{modeCopy.japanese}</p>
             </div>
             <div className="level-progress-summary">
-              <span>{settings.level} 已掌握</span>
-              <strong>{levelMastered}<small>/{levelWords.length}</small></strong>
+              <div className="level-progress-head">
+                <span>{settings.level} 已掌握</span>
+                <strong>{levelProgress.mastered}<small>/{levelWords.length}</small></strong>
+              </div>
+              <div
+                className="level-progress-track"
+                aria-label={`${settings.level} 总进度：已学 ${levelProgress.seenPercent}%，已掌握 ${levelProgress.masteredPercent}%`}
+              >
+                <span className="seen" style={{ width: `${levelProgress.seenPercent}%` }} />
+                <span className="mastered" style={{ width: `${levelProgress.masteredPercent}%` }} />
+              </div>
+              <span className="level-progress-caption">
+                已学 {levelProgress.seen} · 全级 {levelWords.length}
+              </span>
             </div>
           </header>
 

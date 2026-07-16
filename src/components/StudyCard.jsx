@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   ArrowRight,
   Check,
-  Delete,
   RotateCcw,
   Volume2,
   X,
@@ -14,12 +13,6 @@ import {
   keystrokeGroups,
   splitKeystrokes,
 } from '../lib/typing';
-
-const keyboardRows = [
-  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-  ['z', 'x', 'c', 'v', 'b', 'n', 'm', '-'],
-];
 
 function SpeakButton({ word, onSpeak, disabled = false }) {
   return (
@@ -101,47 +94,12 @@ function KeystrokeGuide({ word, typed = '' }) {
   );
 }
 
-function QwertyKeyboard({ activeKey, onKey, onBackspace }) {
-  return (
-    <div className="keyboard-visual" aria-label="罗马字键盘">
-      {keyboardRows.map((row, rowIndex) => (
-        <div className="keyboard-row" key={row.join('')}>
-          {row.map((key) => (
-            <button
-              className={activeKey === key ? 'active' : ''}
-              key={key}
-              onClick={() => onKey(key)}
-              tabIndex="-1"
-              type="button"
-            >
-              {key.toUpperCase()}
-            </button>
-          ))}
-          {rowIndex === 2 && (
-            <button
-              aria-label="退格"
-              className="backspace-key"
-              onClick={onBackspace}
-              tabIndex="-1"
-              title="退格"
-              type="button"
-            >
-              <Delete size={17} />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak, onPrev, onNext }) {
   const inputRef = useRef(null);
   const forms = useMemo(() => getWordForms(word), [word]);
   const cleanTyped = typed.toLowerCase().replace(/[^a-z-]/g, '');
   const typingWrong = cleanTyped && !forms.romaji.startsWith(cleanTyped);
   const typingComplete = cleanTyped === forms.romaji;
-  const activeKey = typingWrong ? null : forms.romaji[cleanTyped.length];
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -204,11 +162,6 @@ export function ReciteCard({ word, typed, onTyped, onChoice, onSpeak, onPrev, on
           spellCheck="false"
           type="text"
           value={typed}
-        />
-        <QwertyKeyboard
-          activeKey={activeKey}
-          onBackspace={() => onTyped(typed.slice(0, -1))}
-          onKey={(key) => onTyped(`${typed}${key}`)}
         />
       </section>
 
