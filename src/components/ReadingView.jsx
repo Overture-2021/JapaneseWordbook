@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react';
-import { buildPassageTyping, matchSegment } from '../lib/passage';
+import { buildPassageTyping, matchReading } from '../lib/passage';
 
 function CurrentGuide({ segment, match }) {
   // Per-key hint for the segment the cursor is in: typed keys are done, the next
-  // expected key is current (or wrong when the last keystroke missed). Shows the
-  // kana for words, or the Japanese mark for punctuation typed via its key.
+  // expected key is current (or wrong when the last keystroke missed).
   return (
     <div className="reading-guide">
-      <span className="reading-guide-kana japanese-text">
-        {segment.reading || segment.surface}
-      </span>
+      <span className="reading-guide-kana japanese-text">{segment.reading}</span>
       <div className="reading-guide-keys" aria-label={`输入 ${segment.romaji}`}>
         {segment.romaji.split('').map((char, index) => (
           <kbd
@@ -61,7 +58,7 @@ export function ReadingView({ passages, error, onSpeak }) {
   const typeableCount = model?.typeable.length ?? 0;
   const complete = typeableCount > 0 && pos >= typeableCount;
   const currentSeg = complete ? null : model?.typeable[pos];
-  const match = currentSeg ? matchSegment(typed, currentSeg) : null;
+  const match = currentSeg ? matchReading(typed, currentSeg.reading) : null;
 
   useEffect(() => {
     setPos(0);
@@ -107,7 +104,7 @@ export function ReadingView({ passages, error, onSpeak }) {
 
   const handleChange = (value) => {
     if (!currentSeg) return;
-    const next = matchSegment(value, currentSeg);
+    const next = matchReading(value, currentSeg.reading);
     if (next.complete) {
       setPos((previous) => previous + 1);
       setTyped('');
@@ -216,13 +213,9 @@ export function ReadingView({ passages, error, onSpeak }) {
               }
               const state = segState(segment);
               const isCurrent = state === 'current';
-              let className = `reading-seg ${state}`;
-              if (isCurrent) {
-                className =
-                  segment.kind === 'punct'
-                    ? 'reading-seg current punct-current'
-                    : `reading-seg current${segment.trans == null ? ' no-trans' : ''}`;
-              }
+              const className = isCurrent
+                ? `reading-seg current${segment.trans == null ? ' no-trans' : ''}`
+                : `reading-seg ${state}`;
               return (
                 <span
                   className={className}

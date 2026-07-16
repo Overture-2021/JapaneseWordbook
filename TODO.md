@@ -66,10 +66,10 @@ Keep output conforming to the schema below so the runtime loader
 
 ### Punctuation & structure
 
-- Punctuation keeps `reading: ""` in the data; it is made typeable at runtime via
-  `PUNCT_KEYS`, which maps a plain-keyboard key to each Japanese mark
-  (`.`→。 `,`→、 `!`→！ `(`→（ `"`→『/』 …) so no Japanese IME is needed.
-  Marks not in the table are skipped by the cursor.
+- Punctuation keeps `reading: ""` and is **never typed** — the cursor skips it,
+  and it renders permanently dimmed. Pressing 。 or 『 teaches nothing, and it
+  would need plain-keyboard stand-ins (WanaKana can't even produce 『 from `"`).
+  Anything without a reading is skipped, so this needs no per-mark table.
 - Paragraph breaks are a `{ "pos": "break", "surface": "", "reading": "" }`
   segment (no newline characters elsewhere); `ReadingView` renders them as a
   vertical gap.

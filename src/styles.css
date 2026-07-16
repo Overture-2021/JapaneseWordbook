@@ -2638,13 +2638,6 @@ a:focus-visible {
   box-shadow: inset 0 -2px 0 var(--gold);
 }
 
-/* Punctuation typed via its ASCII stand-in — a neutral current highlight. */
-.reading-seg.current.punct-current {
-  color: var(--muted);
-  background: #ecefe9;
-  box-shadow: inset 0 -2px 0 var(--line-strong);
-}
-
 .reading-translation {
   padding: 20px 18px;
   color: var(--muted);
