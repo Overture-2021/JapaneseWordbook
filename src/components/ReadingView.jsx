@@ -116,6 +116,18 @@ export function ReadingView({ passages, error, onSpeak }) {
     }
   };
 
+  // Backspace always removes exactly one keystroke. Once the box is empty the
+  // last keystroke belongs to the previous word, so step back into it with all
+  // but its final key still entered — backspace then walks the passage
+  // backwards continuously instead of stopping at each word boundary.
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Backspace' || typed !== '' || pos === 0) return;
+    event.preventDefault();
+    const previous = model.typeable[pos - 1];
+    setPos(pos - 1);
+    setTyped(previous.romaji.slice(0, -1));
+  };
+
   const goToPassage = (id) => {
     setPassageId(id);
   };
@@ -275,6 +287,7 @@ export function ReadingView({ passages, error, onSpeak }) {
             autoCorrect="off"
             className={match.wrong ? 'wrong' : ''}
             onChange={(event) => handleChange(event.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="romaji"
             ref={inputRef}
             spellCheck="false"
@@ -283,6 +296,7 @@ export function ReadingView({ passages, error, onSpeak }) {
           />
           <p className="reading-hint">
             跟着假名输入 romaji，光标随你移动；当前词与对应的中文同时高亮。助词等无对应译文时高亮变色。
+            输入框为空时按退格键可退回上一个词。
           </p>
         </section>
       )}

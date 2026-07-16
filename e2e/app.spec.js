@@ -136,6 +136,47 @@ test('reading mode moves the cursor and both highlighters as you type', async ({
   expect(jpScrolls).toBe(true);
 });
 
+test('backspace on an empty box steps back into the previous word', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Desktop-only keyboard behaviour');
+  const typeable = buildPassageTyping(PASSAGES[0]).typeable; // 私 / は / 毎朝 …
+  const box = page.getByLabel('跟打输入');
+
+  await page.locator('.sidebar .nav-item').filter({ hasText: '阅读' }).click();
+  await expect(page.locator('.reading-passage')).toBeVisible();
+
+  // Finish 私 and は, landing on 毎朝 with an empty box.
+  await box.fill(typeable[0].romaji);
+  await box.fill(typeable[1].romaji);
+  await expect(page.locator('.reading-seg.current')).toContainText('毎朝');
+  await expect(box).toHaveValue('');
+
+  // Backspace removes the one keystroke that completed は, so the cursor lands
+  // back in は — the translation highlight follows it (は has no correspondent).
+  await box.press('Backspace');
+  await expect(page.locator('.reading-seg.current')).toContainText('は');
+  await expect(box).toHaveValue(typeable[1].romaji.slice(0, -1));
+  await expect(page.locator('.reading-trans-token.active')).toHaveCount(0);
+
+  // Emptying は and pressing again crosses another boundary into 私, which
+  // keeps all but its last key.
+  await box.fill('');
+  await box.press('Backspace');
+  await expect(page.locator('.reading-seg.current')).toContainText('私');
+  await expect(box).toHaveValue(typeable[0].romaji.slice(0, -1));
+
+  // Typing the final key re-completes the word and moves forward again.
+  await box.fill(typeable[0].romaji);
+  await expect(page.locator('.reading-seg.current')).toContainText('は');
+  await expect(page.locator('.reading-progress-row span').first()).toContainText('1 /');
+
+  // At the very start backspace is inert rather than throwing.
+  await box.press('Backspace');
+  await box.fill('');
+  await box.press('Backspace');
+  await expect(page.locator('.reading-seg.current')).toContainText('私');
+  await expect(page.locator('.reading-progress-row span').first()).toContainText('0 /');
+});
+
 test('every passage is typeable to the end with IME romaji', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith('mobile'), 'Desktop-only typing walk');
   // Guards the class of bug where the keystroke guide suggests keys that can't
