@@ -2577,6 +2577,13 @@ a:focus-visible {
   line-height: 2.05;
 }
 
+/* Paragraph break: an empty block that ends the line and adds vertical space. */
+.reading-break {
+  display: block;
+  height: 0;
+  margin-top: 15px;
+}
+
 .reading-seg {
   padding: 2px 1px;
   border-radius: 5px;
@@ -2604,6 +2611,13 @@ a:focus-visible {
   color: var(--gold);
   background: var(--gold-soft);
   box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+/* Punctuation typed via its ASCII stand-in — a neutral current highlight. */
+.reading-seg.current.punct-current {
+  color: var(--muted);
+  background: #ecefe9;
+  box-shadow: inset 0 -2px 0 var(--line-strong);
 }
 
 .reading-translation {

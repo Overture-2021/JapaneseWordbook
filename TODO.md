@@ -59,8 +59,22 @@ Keep output conforming to the schema below so the runtime loader
 ### Runtime pieces already in place
 
 - `src/lib/passageLoader.js` — fetch + flatten from the manifest.
-- `src/lib/passage.js` — `buildPassageTyping` (romaji spans) + `matchPrefix`.
-- `src/components/ReadingView.jsx` — type-along UI + dual highlighters.
+- `src/lib/passage.js` — `buildPassageTyping` (per-segment `kind`/keys/spans),
+  `matchReading` (IME kana matcher), `matchSegment` (dispatcher), `PUNCT_KEYS`.
+- `src/components/ReadingView.jsx` — type-along UI + dual highlighters,
+  paragraph breaks, and auto-scroll of the active word.
+
+### Punctuation & structure
+
+- Punctuation keeps `reading: ""` in the data; it is made typeable at runtime via
+  `PUNCT_KEYS`, which maps a plain-keyboard key to each Japanese mark
+  (`.`→。 `,`→、 `!`→！ `(`→（ `"`→『/』 …) so no Japanese IME is needed.
+  Marks not in the table are skipped by the cursor.
+- Paragraph breaks are a `{ "pos": "break", "surface": "", "reading": "" }`
+  segment (no newline characters elsewhere); `ReadingView` renders them as a
+  vertical gap.
+- Katakana words store a **hiragana** reading (ユーフォニアム → ゆうふぉにあむ) so the
+  IME matcher and the guide work.
 
 ## Known limitations / follow-ups
 

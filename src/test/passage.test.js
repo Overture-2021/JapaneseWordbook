@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildPassageTyping, matchReading } from '../lib/passage';
+import { buildPassageTyping, matchReading, matchSegment } from '../lib/passage';
 import { toRomaji } from '../lib/typing';
 
 const PASSAGES = JSON.parse(
@@ -11,21 +11,23 @@ const sample = {
   lang: 'zh',
   segments: [
     { surface: '私', reading: 'わたし', pos: 'pronoun', trans: [0] },
-    { surface: 'は', reading: '', pos: 'particle', trans: null },
+    { surface: 'は', reading: 'は', pos: 'particle', trans: null },
     { surface: '。', reading: '', pos: 'punct', trans: null },
+    { surface: ' ', reading: '', pos: 'punct', trans: null },
   ],
   translation: ['我'],
 };
 
 describe('buildPassageTyping', () => {
-  it('assigns romaji spans and skips reading-less segments', () => {
+  it('classifies segments and assigns keystroke spans', () => {
     const model = buildPassageTyping(sample);
-    expect(model.target).toBe('watashi');
-    expect(model.typeable).toHaveLength(1);
-    expect(model.segments[0]).toMatchObject({ start: 0, end: 7, romaji: 'watashi' });
-    // Particle and punctuation carry no keystrokes — zero-width spans.
-    expect(model.segments[1]).toMatchObject({ start: 7, end: 7, romaji: '' });
-    expect(model.segments[2]).toMatchObject({ start: 7, end: 7, romaji: '' });
+    // Kana types romaji; punctuation types its ASCII stand-in; a space is skipped.
+    expect(model.target).toBe('watashiha.');
+    expect(model.typeable).toHaveLength(3);
+    expect(model.segments[0]).toMatchObject({ kind: 'kana', romaji: 'watashi', start: 0, end: 7 });
+    expect(model.segments[1]).toMatchObject({ kind: 'kana', romaji: 'ha', start: 7, end: 9 });
+    expect(model.segments[2]).toMatchObject({ kind: 'punct', romaji: '.', start: 9, end: 10 });
+    expect(model.segments[3]).toMatchObject({ kind: 'skip', romaji: '' });
   });
 });
 
@@ -70,6 +72,30 @@ describe('matchReading', () => {
 
   it('flags a wrong mora as soon as it resolves', () => {
     expect(matchReading('ki', 'わたし')).toMatchObject({ matched: 0, wrong: true });
+  });
+});
+
+describe('matchSegment (punctuation via a plain keyboard)', () => {
+  const punct = (surface) => ({ kind: 'punct', surface });
+
+  it('accepts the ASCII stand-in for Japanese punctuation', () => {
+    expect(matchSegment('.', punct('。')).complete).toBe(true);
+    expect(matchSegment(',', punct('、')).complete).toBe(true);
+    expect(matchSegment('!', punct('！')).complete).toBe(true);
+    expect(matchSegment('(', punct('（')).complete).toBe(true);
+    expect(matchSegment(')', punct('）')).complete).toBe(true);
+    // The quote brackets WanaKana can't produce from " — the key case.
+    expect(matchSegment('"', punct('『')).complete).toBe(true);
+    expect(matchSegment('"', punct('』')).complete).toBe(true);
+  });
+
+  it('also accepts the Japanese mark itself and rejects a wrong key', () => {
+    expect(matchSegment('。', punct('。')).complete).toBe(true);
+    expect(matchSegment('.', punct('！'))).toMatchObject({ wrong: true, complete: false });
+  });
+
+  it('routes kana segments through the IME matcher', () => {
+    expect(matchSegment('watasi', { kind: 'kana', reading: 'わたし' }).complete).toBe(true);
   });
 });
 

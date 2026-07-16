@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react';
-import { buildPassageTyping, matchReading } from '../lib/passage';
+import { buildPassageTyping, matchSegment } from '../lib/passage';
 
 function CurrentGuide({ segment, match }) {
-  // Per-key romaji for the segment the cursor is in: typed keys are done, the
-  // next expected key is current (or wrong when the last keystroke missed).
+  // Per-key hint for the segment the cursor is in: typed keys are done, the next
+  // expected key is current (or wrong when the last keystroke missed). Shows the
+  // kana for words, or the Japanese mark for punctuation typed via its key.
   return (
     <div className="reading-guide">
-      <span className="reading-guide-kana japanese-text">{segment.reading}</span>
+      <span className="reading-guide-kana japanese-text">
+        {segment.reading || segment.surface}
+      </span>
       <div className="reading-guide-keys" aria-label={`输入 ${segment.romaji}`}>
         {segment.romaji.split('').map((char, index) => (
           <kbd
@@ -36,6 +39,7 @@ export function ReadingView({ passages, error, onSpeak }) {
   const [typed, setTyped] = useState('');
   const inputRef = useRef(null);
   const doneRef = useRef(null);
+  const currentRef = useRef(null);
 
   const passage = useMemo(() => {
     if (!passages?.length) return null;
@@ -54,7 +58,7 @@ export function ReadingView({ passages, error, onSpeak }) {
   const typeableCount = model?.typeable.length ?? 0;
   const complete = typeableCount > 0 && pos >= typeableCount;
   const currentSeg = complete ? null : model?.typeable[pos];
-  const match = currentSeg ? matchReading(typed, currentSeg.reading) : null;
+  const match = currentSeg ? matchSegment(typed, currentSeg) : null;
 
   useEffect(() => {
     setPos(0);
@@ -65,6 +69,11 @@ export function ReadingView({ passages, error, onSpeak }) {
     if (complete) doneRef.current?.focus();
     else inputRef.current?.focus();
   }, [passage?.id, complete]);
+
+  // Keep the active word in view as the cursor descends a long, wrapped passage.
+  useEffect(() => {
+    currentRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [pos, passage?.id]);
 
   if (error) {
     return <div className="reading-view reading-empty">短文加载失败：{error}</div>;
@@ -78,7 +87,7 @@ export function ReadingView({ passages, error, onSpeak }) {
 
   const handleChange = (value) => {
     if (!currentSeg) return;
-    const next = matchReading(value, currentSeg.reading);
+    const next = matchSegment(value, currentSeg);
     if (next.complete) {
       setPos((previous) => previous + 1);
       setTyped('');
@@ -164,20 +173,31 @@ export function ReadingView({ passages, error, onSpeak }) {
         </div>
       </div>
 
-      <p className="reading-passage japanese-text" aria-label="日文短文">
+      <div className="reading-passage japanese-text" aria-label="日文短文">
         {model.segments.map((segment) => {
+          if (segment.pos === 'break') {
+            return <span aria-hidden="true" className="reading-break" key={segment.index} />;
+          }
           const state = segState(segment);
-          const className =
-            state === 'current'
-              ? `reading-seg current${segment.trans == null ? ' no-trans' : ''}`
-              : `reading-seg ${state}`;
+          const isCurrent = state === 'current';
+          let className = `reading-seg ${state}`;
+          if (isCurrent) {
+            className =
+              segment.kind === 'punct'
+                ? 'reading-seg current punct-current'
+                : `reading-seg current${segment.trans == null ? ' no-trans' : ''}`;
+          }
           return (
-            <span className={className} key={segment.index}>
+            <span
+              className={className}
+              key={segment.index}
+              ref={isCurrent ? currentRef : null}
+            >
               {segment.surface}
             </span>
           );
         })}
-      </p>
+      </div>
 
       <p className="reading-translation" aria-label="对照翻译">
         {passage.translation.map((token, index) => (

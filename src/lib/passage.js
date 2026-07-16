@@ -1,20 +1,48 @@
 import { getKanaPreview, toRomaji } from './typing';
 
-// Build the type-along model for a reading passage. Each segment is annotated
-// with the romaji the learner types for it and its [start, end) span within the
-// whole-passage romaji target. Punctuation and any segment with an empty reading
-// contribute no keystrokes — the cursor skips them.
+// Plain-keyboard stand-ins for Japanese punctuation, so a passage can be typed
+// without installing a Japanese IME: the learner presses an ASCII key and the
+// cursor accepts it for the Japanese mark. WanaKana already maps most of these,
+// but not the 「」『』 quote brackets, so we keep one explicit table for all of
+// them. The first key in each list is the one shown in the keystroke guide.
+export const PUNCT_KEYS = {
+  '。': ['.'],
+  '、': [','],
+  '！': ['!'],
+  '？': ['?'],
+  '（': ['(', '['],
+  '）': [')', ']'],
+  '「': ['[', '"'],
+  '」': [']', '"'],
+  '『': ['"', '['],
+  '』': ['"', ']'],
+  '・': ['/'],
+  '〜': ['~'],
+};
+
+// Build the type-along model for a reading passage. Each segment gets a `kind`
+// ('kana' | 'punct' | 'skip'), the keys the learner types, and its [start, end)
+// span in the whole-passage keystroke stream. Kana segments type romaji;
+// punctuation types its ASCII stand-in; spaces and paragraph breaks are skipped.
 export const buildPassageTyping = (passage) => {
   let cursor = 0;
   const segments = passage.segments.map((segment, index) => {
-    const romaji = segment.reading ? toRomaji(segment.reading) : '';
+    let kind = 'skip';
+    let romaji = '';
+    if (segment.reading) {
+      kind = 'kana';
+      romaji = toRomaji(segment.reading);
+    } else if (PUNCT_KEYS[segment.surface]) {
+      kind = 'punct';
+      romaji = PUNCT_KEYS[segment.surface][0]; // primary key, shown in the guide
+    }
     const start = cursor;
     cursor += romaji.length;
-    return { ...segment, index, romaji, start, end: cursor };
+    return { ...segment, index, kind, romaji, start, end: cursor };
   });
   return {
     segments,
-    typeable: segments.filter((segment) => segment.romaji),
+    typeable: segments.filter((segment) => segment.kind !== 'skip'),
     target: segments.map((segment) => segment.romaji).join(''),
   };
 };
@@ -50,4 +78,18 @@ export const matchReading = (typed, reading) => {
     wrong: !onTrack,
     complete: onTrack && settled === reading && kana === settled,
   };
+};
+
+// Match input for one built segment, dispatching on kind. Punctuation accepts
+// its ASCII stand-in (or the Japanese mark itself); kana goes through the
+// IME-style matcher above.
+export const matchSegment = (typed, segment) => {
+  if (segment.kind === 'punct') {
+    const keys = PUNCT_KEYS[segment.surface] ?? [];
+    const entered = (typed || '').trim();
+    if (!entered) return { matched: 0, wrong: false, complete: false };
+    const ok = keys.includes(entered) || entered === segment.surface;
+    return { matched: ok ? 1 : 0, wrong: !ok, complete: ok };
+  }
+  return matchReading(typed, segment.reading);
 };
