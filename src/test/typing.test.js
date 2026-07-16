@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { DICTIONARY } from '../data/dictionary';
 import {
   getKanaPreview,
   getWordForms,
@@ -9,8 +8,18 @@ import {
   toHiragana,
 } from '../lib/typing';
 
-const school = DICTIONARY.find((word) => word.term === '学校');
-const byTerm = (term) => DICTIONARY.find((word) => word.term === term);
+// Self-contained fixtures — the typing utilities only need term + reading.
+const WORDS = [
+  { term: '学校', reading: 'がっこう' },
+  { term: '見る', reading: 'みる' },
+  { term: '食べる', reading: 'たべる' },
+  { term: '間に合う', reading: 'まにあう' },
+  { term: 'ありがとう', reading: 'ありがとう' },
+  { term: '大きい', reading: 'おおきい' },
+  { term: '昨日', reading: 'きのう' },
+];
+const byTerm = (term) => WORDS.find((word) => word.term === term);
+const school = byTerm('学校');
 
 describe('Japanese typing utilities', () => {
   it('converts standard romaji input to hiragana', () => {

@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { DICTIONARY } from '../src/data/dictionary';
 import { toRomaji } from '../src/lib/typing';
+
+// The dictionary is a fetched asset now; read the same file the app serves.
+const DICTIONARY = JSON.parse(
+  readFileSync(new URL('../public/dictionaries/jlpt.json', import.meta.url), 'utf8'),
+);
+const byId = new Map(DICTIONARY.map((word) => [word.id, word]));
 
 const expectNoHorizontalOverflow = async (page) => {
   const dimensions = await page.evaluate(() => ({
@@ -48,7 +54,8 @@ test('recite typing, progress, persistence, and dialogs work', async ({ page }, 
   const dictionary = page.getByRole('dialog', { name: '日中词库' });
   await expect(dictionary).toBeVisible();
   await page.getByPlaceholder('日语、中文或 romaji').fill('gakkou');
-  await expect(page.locator('.dictionary-row')).toHaveCount(1);
+  // 学校 (N5) plus 小学校/中学校… all contain がっこう; the N5 word sorts first.
+  await expect(page.locator('.dictionary-row').first()).toContainText('学校');
   await dictionary.getByRole('button', { name: '关闭词库' }).click();
 
   await page.locator('.sidebar .nav-item').filter({ hasText: '云端同步' }).click();
@@ -67,9 +74,10 @@ test('recite typing, progress, persistence, and dialogs work', async ({ page }, 
 
 test('read and write tests grade valid Japanese input', async ({ page }) => {
   await page.getByRole('button', { name: /认读/ }).click();
-  const readPrompt = await page.locator('.test-prompt > div').innerText();
-  const readWord = DICTIONARY.find((word) => word.term === readPrompt);
+  const readWordId = await page.locator('.study-stage').getAttribute('data-word-id');
+  const readWord = byId.get(readWordId);
   expect(readWord).toBeTruthy();
+  await expect(page.locator('.test-prompt > div')).toHaveText(readWord.term);
   await page.getByLabel('输入读音').fill(toRomaji(readWord.reading));
   await page.getByRole('button', { name: '确认', exact: true }).click();
   await expect(page.getByText('正确', { exact: true })).toBeVisible();
@@ -79,8 +87,8 @@ test('read and write tests grade valid Japanese input', async ({ page }) => {
   await expect(page.locator('.test-prompt')).toBeVisible();
 
   await page.getByRole('button', { name: /默写/ }).click();
-  const meaning = await page.locator('.test-prompt > div').innerText();
-  const writeWord = DICTIONARY.find((word) => word.meaning === meaning);
+  const writeWordId = await page.locator('.study-stage').getAttribute('data-word-id');
+  const writeWord = byId.get(writeWordId);
   expect(writeWord).toBeTruthy();
   await page.getByLabel('输入日语').fill(writeWord.reading);
   await page.getByRole('button', { name: '确认', exact: true }).click();

@@ -20,6 +20,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@vitejs/plugin-react": "latest",
+    "opencc-js": "^1.4.1",
     "vite": "latest",
     "vitest": "latest"
   }

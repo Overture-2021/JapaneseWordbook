@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "dictionaries": [
+    {
+      "id": "jlpt",
+      "name": "JLPT 词表",
+      "file": "jlpt.json",
+      "description": "JLPT N5–N1 分级词表，中文释义（缺失时回退英文）",
+      "totalCount": 7613,
+      "zhCount": 3416,
+      "levels": [
+        {
+          "level": "N5",
+          "label": "入门",
+          "count": 671,
+          "zhCount": 365
+        },
+        {
+          "level": "N4",
+          "label": "基础",
+          "count": 632,
+          "zhCount": 298
+        },
+        {
+          "level": "N3",
+          "label": "进阶",
+          "count": 2074,
+          "zhCount": 1049
+        },
+        {
+          "level": "N2",
+          "label": "中高级",
+          "count": 1627,
+          "zhCount": 685
+        },
+        {
+          "level": "N1",
+          "label": "高级",
+          "count": 2609,
+          "zhCount": 1019
+        }
+      ]
+    }
+  ],
+  "attribution": [
+    {
+      "name": "open-anki-jlpt-decks",
+      "role": "JLPT 分级、读音、英文释义",
+      "url": "https://github.com/jamsinclair/open-anki-jlpt-decks",
+      "license": "MIT"
+    },
+    {
+      "name": "中文维基词典（经 kaikki.org 提取）",
+      "role": "中文释义与词性",
+      "url": "https://kaikki.org/zhwiktionary/",
+      "license": "CC BY-SA 4.0"
+    }
+  ]
+}

@@ -1680,6 +1680,64 @@ a:focus-visible {
   font-size: 9px;
 }
 
+.dictionary-attribution {
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--hairline, rgba(20, 27, 23, 0.08));
+  color: var(--soft-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.dictionary-attribution strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dictionary-attribution a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dictionary-count-note {
+  color: var(--soft-muted);
+}
+
+.app-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  color: var(--soft-muted, #6b7169);
+}
+
+.app-splash strong {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+}
+
+.app-splash .brand-mark {
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+}
+
+.app-splash p {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
 .cloud-dialog {
   position: relative;
   z-index: 1;

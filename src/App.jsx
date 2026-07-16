@@ -6,7 +6,7 @@ import { ResultsView } from './components/ResultsView';
 import { MobileNav, Sidebar } from './components/Sidebar';
 import { ReciteCard, TestCard } from './components/StudyCard';
 import { StudyToolbar } from './components/StudyToolbar';
-import { DICTIONARY, LEVEL_LABELS } from './data/dictionary';
+import { LEVEL_LABELS } from './data/dictionary';
 import {
   authenticateGitHub,
   getCloudState,
@@ -41,26 +41,29 @@ const MODE_COPY = {
   write: { title: '默写测试', japanese: '言葉を書き出す', accent: '中 → 日' },
 };
 
-const WORDS_BY_ID = Object.fromEntries(DICTIONARY.map((word) => [word.id, word]));
+function App({ dictionary, manifest }) {
+  const wordsById = useMemo(
+    () => Object.fromEntries(dictionary.map((word) => [word.id, word])),
+    [dictionary],
+  );
 
-const isValidSession = (session) =>
-  session &&
-  ['recite', 'read', 'write'].includes(session.mode) &&
-  Array.isArray(session.batchIds) &&
-  session.batchIds.length > 0 &&
-  session.batchIds.every((id) => WORDS_BY_ID[id]) &&
-  session.index >= 0 &&
-  session.index < session.batchIds.length;
+  const isValidSession = (candidate) =>
+    candidate &&
+    ['recite', 'read', 'write'].includes(candidate.mode) &&
+    Array.isArray(candidate.batchIds) &&
+    candidate.batchIds.length > 0 &&
+    candidate.batchIds.every((id) => wordsById[id]) &&
+    candidate.index >= 0 &&
+    candidate.index < candidate.batchIds.length;
 
-const getInitialSession = () => {
-  const saved = loadSession();
-  return isValidSession(saved) ? saved : createSession(loadSettings());
-};
-
-function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [progress, setProgress] = useState(loadProgress);
-  const [session, setSession] = useState(getInitialSession);
+  const [session, setSession] = useState(() => {
+    const saved = loadSession();
+    return isValidSession(saved)
+      ? saved
+      : createSession(loadSettings(), 'recite', undefined, dictionary);
+  });
   const [answer, setAnswer] = useState('');
   const [reciteTyped, setReciteTyped] = useState('');
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
@@ -75,8 +78,8 @@ function App() {
   const autoSyncedSession = useRef(null);
 
   const batchWords = useMemo(
-    () => session.batchIds.map((id) => WORDS_BY_ID[id]).filter(Boolean),
-    [session.batchIds],
+    () => session.batchIds.map((id) => wordsById[id]).filter(Boolean),
+    [session.batchIds, wordsById],
   );
   const currentWord = batchWords[session.index];
   const currentResult =
@@ -86,13 +89,19 @@ function App() {
   const todayStats = getTodayStats(progress);
   const modeCopy = MODE_COPY[session.mode];
 
-  const levelMastered = useMemo(() => {
-    const levelWords = DICTIONARY.filter((word) => word.level === settings.level);
-    return levelWords.filter((word) => {
-      const stats = progress.words[word.id];
-      return stats?.seen >= 3 && stats.correct / stats.seen >= 0.8;
-    }).length;
-  }, [progress, settings.level]);
+  const levelWords = useMemo(
+    () => dictionary.filter((word) => word.level === settings.level),
+    [dictionary, settings.level],
+  );
+
+  const levelMastered = useMemo(
+    () =>
+      levelWords.filter((word) => {
+        const stats = progress.words[word.id];
+        return stats?.seen >= 3 && stats.correct / stats.seen >= 0.8;
+      }).length,
+    [levelWords, progress],
+  );
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveProgress(progress), [progress]);
@@ -126,7 +135,7 @@ function App() {
   };
 
   const startSession = (mode = session.mode, words) => {
-    setSession(createSession(settings, mode, words));
+    setSession(createSession(settings, mode, words, dictionary));
     setAnswer('');
     setReciteTyped('');
   };
@@ -140,7 +149,7 @@ function App() {
     const levelChanged = nextSettings.level !== settings.level;
     setSettings(nextSettings);
     if (levelChanged) {
-      setSession(createSession(nextSettings, session.mode));
+      setSession(createSession(nextSettings, session.mode, undefined, dictionary));
     }
   };
 
@@ -233,7 +242,7 @@ function App() {
   const repeatMistakes = () => {
     const mistakeWords = session.results
       .filter((result) => !result.correct)
-      .map((result) => WORDS_BY_ID[result.wordId])
+      .map((result) => wordsById[result.wordId])
       .filter(Boolean);
     if (mistakeWords.length) startSession(session.mode, mistakeWords);
   };
@@ -325,7 +334,7 @@ function App() {
       setSession(
         isValidSession(cloud.session)
           ? cloud.session
-          : createSession(cloud.settings, session.mode),
+          : createSession(cloud.settings, session.mode, undefined, dictionary),
       );
       setCloudConnection((previous) => ({ ...previous, remote }));
       setCloudOpen(false);
@@ -415,7 +424,7 @@ function App() {
             </div>
             <div className="level-progress-summary">
               <span>{settings.level} 已掌握</span>
-              <strong>{levelMastered}<small>/25</small></strong>
+              <strong>{levelMastered}<small>/{levelWords.length}</small></strong>
             </div>
           </header>
 
@@ -462,7 +471,7 @@ function App() {
                 <span className="session-mode-code">{modeCopy.accent}</span>
               </div>
 
-              <div className="study-stage">
+              <div className="study-stage" data-word-id={currentWord.id}>
                 {session.mode === 'recite' ? (
                   <ReciteCard
                     key={currentWord.id}
@@ -495,12 +504,12 @@ function App() {
               onNewBatch={() => startSession()}
               onRepeat={repeatMistakes}
               results={session.results}
-              wordsById={WORDS_BY_ID}
+              wordsById={wordsById}
             />
           )}
 
           <footer className="app-footer">
-            <span>125 词 · N5–N1</span>
+            <span>{dictionary.length} 词 · N5–N1</span>
             <span>本地自动保存{cloudConnection ? ' · GitHub 已连接' : ''}</span>
           </footer>
         </div>
@@ -509,9 +518,11 @@ function App() {
       <MobileNav activeMode={session.mode} onModeChange={changeMode} />
 
       <DictionaryDrawer
+        attribution={manifest?.attribution}
         onClose={() => setDictionaryOpen(false)}
         onSpeak={speak}
         open={dictionaryOpen}
+        words={dictionary}
       />
       <CloudSyncDialog
         autoSync={autoSync}

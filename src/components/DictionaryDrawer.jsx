@@ -1,9 +1,11 @@
 import { Search, Volume2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DICTIONARY, JLPT_LEVELS } from '../data/dictionary';
+import { JLPT_LEVELS } from '../data/dictionary';
 import { getWordForms } from '../lib/typing';
 
-export function DictionaryDrawer({ open, onClose, onSpeak }) {
+const RENDER_CAP = 200; // the list can hold thousands of words; cap the DOM
+
+export function DictionaryDrawer({ open, onClose, onSpeak, words = [], attribution }) {
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState('ALL');
   const closeRef = useRef(null);
@@ -24,18 +26,20 @@ export function DictionaryDrawer({ open, onClose, onSpeak }) {
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return DICTIONARY.filter((word) => {
+    return words.filter((word) => {
       const forms = getWordForms(word);
       const levelMatch = level === 'ALL' || word.level === level;
       const queryMatch =
         !normalized ||
-        [word.term, word.reading, word.meaning, forms.romaji]
+        [word.term, word.reading, word.meaning, word.meaningEn, forms.romaji]
           .join(' ')
           .toLowerCase()
           .includes(normalized);
       return levelMatch && queryMatch;
     });
-  }, [level, query]);
+  }, [level, query, words]);
+
+  const visible = filtered.slice(0, RENDER_CAP);
 
   if (!open) return null;
 
@@ -97,11 +101,13 @@ export function DictionaryDrawer({ open, onClose, onSpeak }) {
 
         <div className="dictionary-count">
           <span>{filtered.length} 词</span>
-          <span>JLPT 分级为学习参考</span>
+          <span className="dictionary-count-note">
+            {filtered.length > RENDER_CAP ? `显示前 ${RENDER_CAP} 条，输入搜索缩小范围` : 'JLPT 分级为学习参考'}
+          </span>
         </div>
 
         <div className="dictionary-list">
-          {filtered.map((word) => {
+          {visible.map((word) => {
             const forms = getWordForms(word);
             return (
               <article className="dictionary-row" key={word.id}>
@@ -115,7 +121,11 @@ export function DictionaryDrawer({ open, onClose, onSpeak }) {
                 <span className="dictionary-romaji">{forms.romaji}</span>
                 <div className="dictionary-meaning">
                   <strong>{word.meaning}</strong>
-                  <span>{word.partOfSpeech}</span>
+                  <span>
+                    {[word.partOfSpeech, word.hasZh ? word.meaningEn : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
                 </div>
                 <button
                   aria-label={`播放 ${word.term} 的读音`}
@@ -134,6 +144,21 @@ export function DictionaryDrawer({ open, onClose, onSpeak }) {
         <footer className="drawer-footer">
           现代 JLPT 不公布固定词汇表；等级依据常见学习资料近似整理。
         </footer>
+
+        {attribution?.length ? (
+          <div className="dictionary-attribution">
+            <strong>词库来源</strong>
+            {attribution.map((source) => (
+              <div key={source.name}>
+                <a href={source.url} rel="noreferrer" target="_blank">
+                  {source.name}
+                </a>
+                {source.role ? ` — ${source.role}` : ''}
+                {source.license ? `（${source.license}）` : ''}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </aside>
     </div>
   );

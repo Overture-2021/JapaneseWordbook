@@ -9,16 +9,16 @@ export const shuffleWords = (words, random = Math.random) => {
   return copy;
 };
 
-export const createBatch = ({ level, batchSize, shuffle = true }) => {
-  const words = getWordsByLevel(level);
+export const createBatch = ({ level, batchSize, shuffle = true }, allWords = []) => {
+  const words = getWordsByLevel(allWords, level);
   const ordered = shuffle ? shuffleWords(words) : words;
   return ordered.slice(0, Math.min(Math.max(Number(batchSize) || 20, 1), words.length));
 };
 
-export const createSession = (settings, mode = 'recite', batchOverride) => ({
+export const createSession = (settings, mode = 'recite', batchOverride, allWords = []) => ({
   mode,
   phase: 'active',
-  batchIds: (batchOverride || createBatch(settings)).map((word) => word.id),
+  batchIds: (batchOverride || createBatch(settings, allWords)).map((word) => word.id),
   index: 0,
   results: [],
   startedAt: new Date().toISOString(),
